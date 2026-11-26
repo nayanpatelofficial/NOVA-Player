@@ -4,7 +4,11 @@ Set-Location $Project
 $Python = $env:NOVA_BUILD_PYTHON
 if ([string]::IsNullOrWhiteSpace($Python)) { $Python = Join-Path $Project '.venv\Scripts\python.exe' }
 if (-not (Test-Path $Python)) { throw 'Create .venv and install requirements.txt plus requirements-build.txt first, or set NOVA_BUILD_PYTHON.' }
-$BuildArgs = @('--noconfirm', '--clean', '--windowed', '--name', 'NOVAPlayer', '--add-data', 'assets;assets', '--add-data', 'THIRD_PARTY_NOTICES.md;.')
+$IconBuilder = Join-Path $PSScriptRoot 'create_windows_icon.ps1'
+& $IconBuilder
+$IconPath = Join-Path $Project 'assets\nova-player.ico'
+if (-not (Test-Path $IconPath)) { throw 'The NOVA Windows icon was not created.' }
+$BuildArgs = @('--noconfirm', '--clean', '--windowed', '--name', 'NOVAPlayer', '--icon', $IconPath, '--add-data', 'assets;assets', '--add-data', 'THIRD_PARTY_NOTICES.md;.')
 & $Python -m PyInstaller @BuildArgs main.py
 if ($LASTEXITCODE -ne 0) { throw 'NOVA Player executable build failed.' }
 $AppFolder = Join-Path $Project 'dist\NOVAPlayer'

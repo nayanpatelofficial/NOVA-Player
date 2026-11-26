@@ -9,6 +9,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64
 DefaultGroupName={#AppName}
 AppPublisher=Nayan Patel
+SetupIconFile=..\assets\nova-player.ico
 UninstallDisplayIcon={app}\NOVAPlayer.exe
 OutputDir=..\dist
 OutputBaseFilename=NOVA-Player-Setup
@@ -18,8 +19,8 @@ SolidCompression=yes
 [Files]
 Source: "..\dist\NOVAPlayer\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]
-Name: "{group}\NOVA Player"; Filename: "{app}\NOVAPlayer.exe"
-Name: "{autodesktop}\NOVA Player"; Filename: "{app}\NOVAPlayer.exe"; Tasks: desktopicon
+Name: "{group}\NOVA Player"; Filename: "{app}\NOVAPlayer.exe"; IconFilename: "{app}\NOVAPlayer.exe"
+Name: "{autodesktop}\NOVA Player"; Filename: "{app}\NOVAPlayer.exe"; IconFilename: "{app}\NOVAPlayer.exe"; Tasks: desktopicon
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"
 
