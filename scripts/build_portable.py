@@ -13,11 +13,11 @@ import sys
 import tarfile
 from pathlib import Path
 
-from nova import __version__
-
-
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
+sys.path.insert(0, str(ROOT))
+
+from nova import __version__
 
 
 def copy_runtime_notices(app_folder: Path) -> None:
@@ -117,3 +117,4 @@ def run_build() -> Path:
 
 if __name__ == "__main__":
     run_build()
+
