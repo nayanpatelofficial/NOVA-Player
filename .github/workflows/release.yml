@@ -1,0 +1,103 @@
+name: Build and release NOVA Player
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Unit tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Install dependencies and run tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m unittest discover -s tests -v
+
+  build:
+    needs: test
+    name: Build ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Windows x64
+            os: windows-latest
+            kind: windows
+            artifact: NOVA-Player-Windows-x64
+          - platform: Linux x64
+            os: ubuntu-24.04
+            kind: portable
+            artifact: NOVA-Player-Linux-x64
+          - platform: macOS Intel
+            os: macos-15-intel
+            kind: portable
+            artifact: NOVA-Player-macOS-x64
+          - platform: macOS Apple silicon
+            os: macos-latest
+            kind: portable
+            artifact: NOVA-Player-macOS-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-build.txt
+
+      - name: Install Windows installer compiler
+        if: matrix.kind == 'windows'
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build Windows packages
+        if: matrix.kind == 'windows'
+        shell: pwsh
+        run: |
+          $env:NOVA_BUILD_PYTHON = (Get-Command python).Source
+          .\scripts\build_windows.ps1
+          if (-not (Test-Path 'dist\NOVA-Player-Setup.exe')) {
+            throw 'The Windows installer was not created.'
+          }
+          Compress-Archive -Path 'dist\NOVAPlayer', 'README.md' -DestinationPath 'dist\NOVA-Player-Portable.zip' -Force
+
+      - name: Build Linux or macOS package
+        if: matrix.kind == 'portable'
+        run: python scripts/build_portable.py
+
+      - name: Upload install packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/NOVA-Player-*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: NOVA-Player-*
+          path: release-packages
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          files: release-packages/*
