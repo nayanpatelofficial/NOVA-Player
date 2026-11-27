@@ -151,10 +151,17 @@ jobs:
           test -d "$NDK" || { echo "Android NDK 28.2.13676358 could not be installed"; exit 1; }
           PYSIDE_WHEEL="$RUNNER_TEMP/nova-android-wheels/pyside6-android-aarch64.whl"
           SHIBOKEN_WHEEL="$RUNNER_TEMP/nova-android-wheels/shiboken6-android-aarch64.whl"
-          pyside6-android-deploy --force --name 'NOVA Player' \
+          if ! pyside6-android-deploy --force --name 'NOVA Player' \
             --wheel-pyside="$PYSIDE_WHEEL" \
             --wheel-shiboken="$SHIBOKEN_WHEEL" \
-            --ndk-path="$NDK" --sdk-path="$SDK"
+            --ndk-path="$NDK" --sdk-path="$SDK"; then
+            echo "::group::libffi configure diagnostics"
+            find .buildozer/android/platform/build-arm64-v8a \
+              -path '*/libffi/*/config.log' -type f -print \
+              -exec tail -n 120 {} \;
+            echo "::endgroup::"
+            exit 1
+          fi
           mkdir -p dist/android
           APK="$(find . -type f -name '*.apk' -not -path './.git/*' -not -path './.venv/*' -print -quit)"
           test -n "$APK" || { echo "APK output was not found"; exit 1; }
