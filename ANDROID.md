@@ -15,7 +15,7 @@ Build on Linux or macOS with Python 3.10–3.14, JDK 17+, Android SDK platform-t
 ```sh
 python3 -m venv .venv-android
 . .venv-android/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt qtpip
 mkdir -p /tmp/nova-android-wheels
 cd /tmp/nova-android-wheels
 qtpip download 'PySide6==6.12.0' --android --arch aarch64
