@@ -39,7 +39,8 @@ class NovaPlayer:
         from PySide6.QtCore import QUrl
         value = str(path).strip()
         parsed = urlsplit(value)
-        if parsed.scheme.lower() in {"http", "https", "rtsp", "rtmp"} and parsed.netloc:
+        if ((parsed.scheme.lower() in {"http", "https", "rtsp", "rtmp"} and parsed.netloc)
+                or parsed.scheme.lower() == "content"):
             source = QUrl(value)
             if not source.isValid():
                 raise NovaPlaybackError("The network stream URL is invalid.")
@@ -97,3 +98,4 @@ class NovaPlayer:
 
     def close(self):
         self.player.stop()
+

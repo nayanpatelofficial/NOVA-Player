@@ -9,6 +9,7 @@ Download the matching package from **GitHub Releases**:
 - **Windows 10/11, 64-bit:** run `NOVA-Player-Setup.exe`. Python is not required. The portable ZIP can be extracted and launched without installing.
 - **Linux x64:** extract `NOVA-Player-v1.10.0-linux-x64.tar.gz`, enter the extracted folder, and run `bash ./install-linux.sh`. It installs for the current user under `~/.local/opt/nova-player`; administrator access is not required. Use `bash ./uninstall-linux.sh` from the same extracted folder to remove it.
 - **macOS Intel or Apple silicon:** extract the matching ZIP and move `NOVAPlayer.app` into Applications. The app is not signed or notarized; macOS may require opening it through Finder's **Open** action.
+- **Android arm64:** the GitHub Actions build publishes a sideloadable debug APK artifact. See [ANDROID.md](ANDROID.md) for install and build notes. This package is not signed for Google Play, and device playback still needs a real Android-device check.
 
 Windows packages target 64-bit Windows 10/11. The Windows installer is not code-signed, so Windows may show an unknown-publisher or SmartScreen warning. This is a publisher-trust warning; users should not import a development certificate for the release package.
 
@@ -44,7 +45,7 @@ python3 -m pip install -r requirements.txt -r requirements-build.txt
 python3 scripts/build_portable.py
 ```
 
-The GitHub Actions workflow runs unit tests, builds Windows x64, Linux x64, macOS Intel, and macOS Apple silicon packages, and uploads them as workflow artifacts. Pushing a `v*` tag also creates a GitHub Release with all packages attached.
+The GitHub Actions workflow runs unit tests, builds Windows x64, Linux x64, macOS Intel, macOS Apple silicon, and an Android arm64 debug APK, and uploads them as workflow artifacts. Pushing a `v*` tag also creates a GitHub Release with all packages attached.
 
 ## Features and controls
 
@@ -65,3 +66,4 @@ Third-party notices and license files are included in `THIRD_PARTY_NOTICES.md` a
 This repository intentionally has **no source-code license**, as requested. Public visibility on GitHub does not grant other users permission to reuse, modify, or redistribute the source beyond GitHub's default viewing rights. Third-party components retain their own license terms.
 
 Unit tests cover settings, playlist parsing, subtitle parsing, playback state, metadata, and plugin discovery. This development environment is Windows; Linux and macOS packages are configured to build on their matching GitHub runners and have not been runtime-tested here. Real media playback, cross-PC installation, and Microsoft Store certification are not claimed as validated.
+

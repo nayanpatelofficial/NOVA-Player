@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QLabel, QSlider, QFileDialog, QListWidget, QSplitter, QMessageBox, QComboBox,
     QDialog, QFormLayout, QDialogButtonBox, QGroupBox, QGridLayout, QFrame,
-    QGraphicsDropShadowEffect,
+    QGraphicsDropShadowEffect, QMenu,
     QInputDialog,
 )
 
@@ -85,6 +85,12 @@ QSlider::handle:vertical { background:#8a69d5; height:13px; margin:0 -5px; borde
 QComboBox { background:#fff; border:1px solid #ded9e9; border-radius:7px; padding:7px; }
 QStatusBar { background:#fff; color:#73788d; }
 """
+ANDROID_STYLE = """
+QPushButton { min-height:34px; padding:7px 9px; }
+QListWidget::item { min-height:34px; padding:13px 10px; }
+QSlider::handle:horizontal { width:16px; margin:-7px 0; border-radius:8px; }
+QFrame#Header, QFrame#Sidebar, QFrame#Transport { border-radius:12px; }
+"""
 
 LOGO_FILE = Path(__file__).resolve().parent.parent / "assets" / "nova_logo_light_dark.png"
 
@@ -142,6 +148,7 @@ class PlayerWindow(QMainWindow):
         super().__init__()
         self.settings = settings or Settings()
         self.pip = pip
+        self.android_ui = QApplication.platformName().lower() == "android"
         self.nova_player = None
         self.files = []
         self.current = None
@@ -151,12 +158,15 @@ class PlayerWindow(QMainWindow):
         self._closing = False
         self._switching_media = False
         self._fullscreen = False
+        self._sidebar_hidden_before_fullscreen = False
         self.external_subtitles = []
         self.external_subtitle_path = None
         self.active_theme = self.effective_theme()
         self.setWindowTitle("NOVA Player")
-        self.resize(1120 if not pip else 480, 720 if not pip else 300)
-        self.setMinimumSize(860, 560) if not pip else None
+        self.resize(440 if self.android_ui else (1120 if not pip else 480),
+                    800 if self.android_ui else (720 if not pip else 300))
+        if not pip:
+            self.setMinimumSize(0, 0) if self.android_ui else self.setMinimumSize(860, 560)
         self.setAcceptDrops(True)
 
         if pip:
@@ -170,27 +180,44 @@ class PlayerWindow(QMainWindow):
         self.setCentralWidget(central)
         outer = QVBoxLayout(central)
         self.outer_layout = outer
-        outer.setContentsMargins(18, 15, 18, 12)
-        outer.setSpacing(13)
+        outer.setContentsMargins(8, 8, 8, 8) if self.android_ui else outer.setContentsMargins(18, 15, 18, 12)
+        outer.setSpacing(8 if self.android_ui else 13)
 
         self.header = QFrame(objectName="Header")
-        self.header.setFixedHeight(52)
+        self.header.setFixedHeight(50 if self.android_ui else 52)
         header_row = QHBoxLayout(self.header)
-        header_row.setContentsMargins(11, 4, 12, 4)
-        header_row.setSpacing(9)
+        header_row.setContentsMargins(8 if self.android_ui else 11, 4, 8 if self.android_ui else 12, 4)
+        header_row.setSpacing(6 if self.android_ui else 9)
         self.brand_icon = QLabel()
         self.brand_icon.setFixedSize(32, 32)
         header_row.addWidget(self.brand_icon)
-        brand = QLabel("NOVA Player")
+        brand = QLabel("NOVA" if self.android_ui else "NOVA Player")
         brand.setObjectName("Brand")
         header_row.addWidget(brand)
         header_row.addStretch(1)
         self.playback_badge = QLabel("NOVA Playback")
         self.playback_badge.setObjectName("Hint")
-        header_row.addWidget(self.playback_badge)
+        if self.android_ui:
+            self.playback_badge.hide()
+            self.mobile_open_button = QPushButton("＋")
+            self.mobile_open_button.setToolTip("Open media")
+            self.mobile_open_button.setFixedSize(38, 38)
+            self.mobile_open_button.clicked.connect(self.open_files)
+            header_row.addWidget(self.mobile_open_button)
+            self.mobile_library_button = QPushButton("☷")
+            self.mobile_library_button.setToolTip("Show or hide library")
+            self.mobile_library_button.setFixedSize(38, 38)
+            header_row.addWidget(self.mobile_library_button)
+            self.mobile_more_button = QPushButton("⋮")
+            self.mobile_more_button.setToolTip("More options")
+            self.mobile_more_button.setFixedSize(38, 38)
+            header_row.addWidget(self.mobile_more_button)
+        else:
+            header_row.addWidget(self.playback_badge)
         outer.addWidget(self.header)
 
-        body = QSplitter(Qt.Orientation.Horizontal)
+        body = QSplitter(Qt.Orientation.Vertical if self.android_ui else Qt.Orientation.Horizontal)
+        self.body_splitter = body
         body.setChildrenCollapsible(False)
         video_card = QFrame(objectName="VideoCard")
         self.video_card = video_card
@@ -198,7 +225,7 @@ class PlayerWindow(QMainWindow):
         video_layout.setContentsMargins(0, 0, 0, 0)
         self.video = VideoSurface()
         self.video.doubleClicked.connect(self.fullscreen)
-        self.video.setMinimumSize(500, 300)
+        self.video.setMinimumSize(0, 0) if self.android_ui else self.video.setMinimumSize(500, 300)
         video_layout.addWidget(self.video)
         body.addWidget(video_card)
 
@@ -219,13 +246,20 @@ class PlayerWindow(QMainWindow):
             side_heading.addWidget(open_button)
             side_layout.addLayout(side_heading)
             self.library = QListWidget()
-            self.library.itemDoubleClicked.connect(lambda item: self.play_index(self.library.row(item)))
+            if self.android_ui:
+                self.library.itemClicked.connect(lambda item: self.play_index(self.library.row(item)))
+                self.library.setMinimumHeight(115)
+            else:
+                self.library.itemDoubleClicked.connect(lambda item: self.play_index(self.library.row(item)))
             side_layout.addWidget(self.library)
             self.library_hint = QLabel("Open files or drop a folder here")
             self.library_hint.setObjectName("Hint")
             side_layout.addWidget(self.library_hint)
             body.addWidget(self.sidebar)
-            body.setSizes([780, 280])
+            body.setSizes([3, 1] if self.android_ui else [780, 280])
+            if self.android_ui:
+                self.sidebar.hide()
+                self.mobile_library_button.clicked.connect(self.toggle_mobile_library)
         else:
             self.library = None
             self.sidebar = None
@@ -250,23 +284,38 @@ class PlayerWindow(QMainWindow):
         buttons = QHBoxLayout()
         self.play_button = QPushButton("▶  Play")
         self.play_button.setObjectName("Primary")
+        if self.android_ui:
+            self.play_button.setText("▶")
+            self.play_button.setToolTip("Play or pause")
+            self.play_button.setFixedWidth(52)
         self.play_button.clicked.connect(self.toggle)
         buttons.addWidget(self.play_button)
         subtitle = QPushButton("Subtitles")
+        if self.android_ui:
+            subtitle.setText("CC")
+            subtitle.setToolTip("Subtitles")
+            subtitle.setFixedWidth(48)
         subtitle.clicked.connect(self.open_subtitle)
         buttons.addWidget(subtitle)
-        if not pip:
+        if not pip and not self.android_ui:
             pip_button = QPushButton("Picture in Picture")
             pip_button.clicked.connect(self.open_pip)
             buttons.addWidget(pip_button)
         full_button = QPushButton("Fullscreen")
+        if self.android_ui:
+            full_button.setText("⛶")
+            full_button.setToolTip("Fullscreen")
+            full_button.setFixedWidth(44)
         full_button.clicked.connect(self.fullscreen)
         buttons.addWidget(full_button)
+        self.fullscreen_button = full_button
         buttons.addStretch(1)
-        buttons.addWidget(QLabel("Volume"))
+        self.volume_label = QLabel("Volume")
+        if not self.android_ui:
+            buttons.addWidget(self.volume_label)
         self.volume = QSlider(Qt.Orientation.Horizontal)
         self.volume.setRange(0, 100)
-        self.volume.setFixedWidth(150)
+        self.volume.setFixedWidth(92 if self.android_ui else 150)
         self.volume.setValue(int(self.settings.get("volume", 70)))
         self.volume.valueChanged.connect(self.set_volume)
         buttons.addWidget(self.volume)
@@ -281,6 +330,8 @@ class PlayerWindow(QMainWindow):
         if not pip:
             self.add_paths(self.settings.get("recent_files", []), autoplay=False)
             self.make_menu()
+            if self.android_ui:
+                self.menuBar().hide()
         self.apply_shortcuts()
         self.apply_theme()
         hints = QApplication.styleHints()
@@ -410,13 +461,16 @@ class PlayerWindow(QMainWindow):
     def apply_theme(self):
         self.active_theme = self.effective_theme()
         stylesheet = STYLE if self.active_theme == "dark" else LIGHT_STYLE
+        if self.android_ui:
+            stylesheet += ANDROID_STYLE
         if self.pip:
             stylesheet += self.build_pip_styles()
         self.setStyleSheet(stylesheet)
         if self.pip:
             self.apply_glass_effects([self.centralWidget()])
         else:
-            self.apply_glass_effects([self.header, self.video_card, self.sidebar, self.transport])
+            self.apply_glass_effects([self.header, self.sidebar, self.transport] if self.android_ui else
+                                     [self.header, self.video_card, self.sidebar, self.transport])
         logo = logo_pixmap(self.active_theme, 32 if not self.pip else 28)
         self.setWindowIcon(QIcon(logo))
         if not self.pip:
@@ -616,13 +670,31 @@ class PlayerWindow(QMainWindow):
             "The current NOVA playback adapter does not provide audio equalizer processing.")
 
         view = self.menuBar().addMenu("&View")
-        self._pip_menu_action = self._add_menu_action(view, "Picture in Picture", self.open_pip)
+        self._pip_menu_action = (None if self.android_ui else
+                                 self._add_menu_action(view, "Picture in Picture", self.open_pip))
         self._add_menu_action(view, "Fullscreen", self.fullscreen)
 
         help_menu = self.menuBar().addMenu("&Help")
         self._add_menu_action(help_menu, "About NOVA Player", self.show_about)
         self._add_menu_action(help_menu, "Keyboard shortcuts", self.show_shortcuts)
         self._refresh_menu_states()
+        if self.android_ui and getattr(self, "mobile_more_button", None):
+            more_menu = QMenu(self)
+            for menu_action in self.menuBar().actions():
+                submenu = menu_action.menu()
+                if submenu:
+                    more_menu.addMenu(submenu)
+            self.mobile_more_button.setMenu(more_menu)
+
+    def toggle_mobile_library(self):
+        if not self.android_ui or not self.sidebar:
+            return
+        if self.sidebar.isHidden():
+            self.sidebar.show()
+            self.body_splitter.setSizes([3, 2])
+        else:
+            self.sidebar.hide()
+            self.body_splitter.setSizes([1, 0])
 
     def _add_menu_action(self, menu, title, callback):
         action = QAction(title, self)
@@ -635,7 +707,7 @@ class PlayerWindow(QMainWindow):
         for name in ("_pip_menu_action",):
             action = getattr(self, name, None)
             if action:
-                action.setEnabled(has_media and not self.pip)
+                action.setEnabled(has_media and not self.pip and not self.android_ui)
         for name in ("_save_playlist_action", "_stop_menu_action", "_previous_menu_action", "_next_menu_action",
                      "_shuffle_action", "_repeat_group", "_quit_after_action"):
             action = getattr(self, name, None)
@@ -780,9 +852,9 @@ class PlayerWindow(QMainWindow):
 
     def show_about(self):
         from . import __version__
-        QMessageBox.about(
-            self,
-            "About NOVA Player",
+        pip_description = ("picture in picture" if not self.android_ui else
+                           "floating picture in picture on desktop")
+        about_text = (
             f"NOVA Player {__version__}\n"
             "Developed by Nayan Patel\n\n"
             "About playlists\n"
@@ -792,21 +864,28 @@ class PlayerWindow(QMainWindow):
             "Playback and controls\n"
             "NOVA Playback uses the media components available with the app and operating system. Supported formats vary by device. "
             "The menus include play/stop, next/previous, seeking, speed, repeat, shuffle, audio/video track selection, "
-            "output device, volume, subtitles, fullscreen, and picture in picture.\n\n"
+            f"output device, volume, subtitles, fullscreen, and {pip_description}.\n\n"
             "Keyboard: Space = play/pause; Left/Right = seek 15 seconds; Up/Down = change volume; "
-            "F = fullscreen; P = picture in picture.\n\n"
-            "Disc playback, media conversion, stream output, visualizations, and real-time equalizer processing "
-            "are not available in this build. Third-party notices and license files are beside the app.",
+            + ("F = fullscreen; P = picture in picture.\n\n" if not self.android_ui else
+               "Use the fullscreen button for video.\n\n")
+            + "Disc playback, media conversion, stream output, visualizations, and real-time equalizer processing "
+            "are not available in this build. Third-party notices and license files are beside the app."
+        )
+        QMessageBox.about(
+            self,
+            "About NOVA Player",
+            about_text,
         )
 
     def show_shortcuts(self):
+        pip_shortcut = "P  Picture in picture\n" if not self.android_ui else ""
         QMessageBox.information(
             self, "NOVA Player keyboard shortcuts",
             "Space  Play / pause\n"
             "Left / Right  Seek backward / forward 15 seconds\n"
             "Up / Down  Volume up / down\n"
             "F  Fullscreen\n"
-            "P  Picture in picture\n"
+            f"{pip_shortcut}"
             "Escape  Leave fullscreen",
         )
 
@@ -817,7 +896,7 @@ class PlayerWindow(QMainWindow):
                     ("seek_backward", lambda: self.seek_relative(-15), "Left"),
                     ("volume_up", lambda: self.volume.setValue(min(100, self.volume.value() + 5)), "Up"),
                     ("volume_down", lambda: self.volume.setValue(max(0, self.volume.value() - 5)), "Down")]
-        if not self.pip:
+        if not self.pip and not self.android_ui:
             bindings += [("fullscreen", self.fullscreen, "F"), ("pip", self.open_pip, "P")]
         for key, fn, default in bindings:
             action = QAction(self)
@@ -864,10 +943,10 @@ class PlayerWindow(QMainWindow):
 
     @staticmethod
     def media_title(location):
-        if is_network_url(location):
-            from urllib.parse import urlsplit
+        if is_network_url(location) or str(location).lower().startswith("content://"):
+            from urllib.parse import unquote, urlsplit
             parsed = urlsplit(str(location))
-            return Path(parsed.path).name or parsed.hostname or str(location)
+            return Path(unquote(parsed.path)).name or parsed.hostname or str(location)
         return Path(location).name
 
     def add_paths(self, paths, autoplay=True):
@@ -876,7 +955,7 @@ class PlayerWindow(QMainWindow):
             value = str(raw).strip()
             if not value:
                 continue
-            if is_network_url(value):
+            if is_network_url(value) or value.lower().startswith("content://"):
                 batch = [value]
             else:
                 p = Path(value).expanduser()
@@ -888,7 +967,9 @@ class PlayerWindow(QMainWindow):
                     self.files.append(full)
                     added.append(full)
                     if self.library:
-                        title = self.media_title(full) if is_network_url(full) else audio_metadata(full)["title"]
+                        title = (self.media_title(full)
+                                 if is_network_url(full) or full.lower().startswith("content://")
+                                 else audio_metadata(full)["title"])
                         self.library.addItem(title)
         if self.library and self.files:
             self.library_hint.setText(f"{len(self.files)} items")
@@ -919,7 +1000,7 @@ class PlayerWindow(QMainWindow):
         try:
             self.nova_player.load(self.current)
             self.paused = False
-            self.play_button.setText("Ⅱ" if self.pip else "Ⅱ  Pause")
+            self.set_play_button(paused=False)
             self.statusBar().showMessage(f"Opening: {self.media_title(self.current)}")
             self.playback_badge.setText("●  NOVA Playback · loading")
             self.set_volume(self.volume.value())
@@ -939,7 +1020,7 @@ class PlayerWindow(QMainWindow):
             return
         self.paused = not self.paused
         self.nova_player.pause(self.paused)
-        self.play_button.setText(("▶" if self.paused else "Ⅱ") if self.pip else ("▶  Play" if self.paused else "Ⅱ  Pause"))
+        self.set_play_button(paused=self.paused)
         self.statusBar().showMessage("Paused" if self.paused else f"Playing: {self.media_title(self.current)}")
 
     def stop_playback(self):
@@ -947,7 +1028,7 @@ class PlayerWindow(QMainWindow):
         if engine:
             engine.stop()
             self.paused = True
-            self.play_button.setText("▶" if self.pip else "▶  Play")
+            self.set_play_button(paused=True)
             self.statusBar().showMessage("Stopped")
 
     def previous_media(self):
@@ -968,6 +1049,12 @@ class PlayerWindow(QMainWindow):
             self.play_index(index + 1)
         elif self.settings.get("repeat_mode", "off") == "all":
             self.play_index(0)
+
+    def set_play_button(self, paused):
+        if self.pip or self.android_ui:
+            self.play_button.setText("▶" if paused else "Ⅱ")
+        else:
+            self.play_button.setText("▶  Play" if paused else "Ⅱ  Pause")
 
     def set_repeat_mode(self, mode):
         if mode not in {"off", "one", "all"}:
@@ -1005,7 +1092,7 @@ class PlayerWindow(QMainWindow):
             self.close()
         else:
             self.paused = True
-            self.play_button.setText("▶" if self.pip else "▶  Play")
+            self.set_play_button(paused=True)
             self.playback_badge.setText("●  NOVA Playback · playlist finished")
             self.statusBar().showMessage("Playlist finished")
 
@@ -1107,10 +1194,12 @@ class PlayerWindow(QMainWindow):
     def fullscreen(self):
         self._fullscreen = not self._fullscreen
         if self._fullscreen:
+            self._sidebar_hidden_before_fullscreen = bool(self.sidebar and self.sidebar.isHidden())
             self.outer_layout.setContentsMargins(0, 0, 0, 0)
             self.outer_layout.setSpacing(0)
             self.header.hide()
-            self.transport.hide()
+            if not self.android_ui:
+                self.transport.hide()
             if self.sidebar: self.sidebar.hide()
             self.menuBar().hide()
             self.statusBar().hide()
@@ -1119,12 +1208,16 @@ class PlayerWindow(QMainWindow):
             self.showFullScreen()
         else:
             self.showNormal()
-            self.outer_layout.setContentsMargins(18, 15, 18, 12)
-            self.outer_layout.setSpacing(13)
+            self.outer_layout.setContentsMargins(8, 8, 8, 8) if self.android_ui else self.outer_layout.setContentsMargins(18, 15, 18, 12)
+            self.outer_layout.setSpacing(8 if self.android_ui else 13)
             self.header.show()
             self.transport.show()
-            if self.sidebar: self.sidebar.show()
-            self.menuBar().show()
+            if self.sidebar and not (self.android_ui and self._sidebar_hidden_before_fullscreen):
+                self.sidebar.show()
+            if self.android_ui:
+                self.menuBar().hide()
+            else:
+                self.menuBar().show()
             self.statusBar().show()
             self.video_card.setStyleSheet("")
             self.video.setStyleSheet("")
@@ -1235,7 +1328,7 @@ class PlayerWindow(QMainWindow):
         dialog.exec()
 
     def open_pip(self):
-        if self.pip or not self.current:
+        if self.pip or self.android_ui or not self.current:
             return
         if self._pip_window:
             self._pip_window.show()
@@ -1249,7 +1342,7 @@ class PlayerWindow(QMainWindow):
             try:
                 self.nova_player.pause(True)
                 self.paused = True
-                self.play_button.setText("▶  Play")
+                self.set_play_button(paused=True)
             except Exception:
                 pass
         pip = PlayerWindow(Settings(), pip=True)
@@ -1270,7 +1363,7 @@ class PlayerWindow(QMainWindow):
             except Exception:
                 pass
             self.paused = snapshot.paused
-            self.play_button.setText("▶  Play" if self.paused else "Ⅱ  Pause")
+            self.set_play_button(paused=self.paused)
             self.statusBar().showMessage("Mini-player could not start; continuing in NOVA")
             return
         try:
@@ -1293,7 +1386,7 @@ class PlayerWindow(QMainWindow):
             self.nova_player.seek(max(0, state.get("position", 0)))
             self.nova_player.pause(bool(state.get("paused", False)))
             self.paused = bool(state.get("paused", False))
-            self.play_button.setText("▶  Play" if self.paused else "Ⅱ  Pause")
+            self.set_play_button(paused=self.paused)
             self.statusBar().showMessage("Returned to NOVA playback")
             self.showNormal()
             self.raise_()
@@ -1330,3 +1423,4 @@ def main():
     window = PlayerWindow()
     window.show()
     return app.exec()
+

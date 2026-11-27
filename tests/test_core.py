@@ -93,7 +93,13 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(state["position"],12.5)
         self.assertTrue(state["paused"])
     def test_player_load_accepts_http_stream_urls(self):
-        from PySide6.QtCore import QUrl
+        qt_root=types.ModuleType("PySide6"); qt_root.__path__=[]
+        qt_core=types.ModuleType("PySide6.QtCore")
+        class QUrl:
+            def __init__(self, value): self.value=value
+            def isValid(self): return True
+            def __eq__(self, other): return isinstance(other, QUrl) and self.value == other.value
+        qt_core.QUrl=QUrl
         player=NovaPlayer.__new__(NovaPlayer)
         class Backend:
             source=None
@@ -101,8 +107,30 @@ class CoreTests(unittest.TestCase):
             def setSource(self, source): self.source=source
             def play(self): self.started=True
         player.player=Backend()
-        player.load("https://example.invalid/live")
+        with patch.dict(sys.modules,{"PySide6":qt_root,"PySide6.QtCore":qt_core}):
+            player.load("https://example.invalid/live")
         self.assertEqual(player.player.source,QUrl("https://example.invalid/live"))
+        self.assertTrue(player.player.started)
+
+    def test_player_load_accepts_android_content_uris(self):
+        qt_root=types.ModuleType("PySide6"); qt_root.__path__=[]
+        qt_core=types.ModuleType("PySide6.QtCore")
+        class QUrl:
+            def __init__(self, value): self.value=value
+            def isValid(self): return True
+            def __eq__(self, other): return isinstance(other, QUrl) and self.value == other.value
+        qt_core.QUrl=QUrl
+        player=NovaPlayer.__new__(NovaPlayer)
+        class Backend:
+            source=None
+            started=False
+            def setSource(self, source): self.source=source
+            def play(self): self.started=True
+        player.player=Backend()
+        content_uri="content://com.android.providers.media.documents/document/video%3A42"
+        with patch.dict(sys.modules,{"PySide6":qt_root,"PySide6.QtCore":qt_core}):
+            player.load(content_uri)
+        self.assertEqual(player.player.source,QUrl(content_uri))
         self.assertTrue(player.player.started)
     def test_srt_subtitles_parse_multiline_text_and_html_tags(self):
         with tempfile.TemporaryDirectory() as d:
@@ -119,3 +147,4 @@ class CoreTests(unittest.TestCase):
             Path(d,"codec").mkdir(); self.assertEqual(discover_plugins([d])[0]["name"],"codec")
 
 if __name__=="__main__":unittest.main()
+

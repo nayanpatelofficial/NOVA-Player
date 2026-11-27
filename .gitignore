@@ -6,7 +6,11 @@ __pycache__/
 .coverage
 build/
 dist/
+.buildozer/
+buildozer.spec
+pysidedeploy.spec
 *.spec.bak
 *.log
 .idea/
 .vscode/
+
