@@ -101,6 +101,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Install Linux libraries needed by Qt wheel tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libdouble-conversion3
       - name: Install host-side Qt for Python and app dependencies
         run: |
           python -m venv "$RUNNER_TEMP/nova-android-venv"
@@ -112,6 +116,7 @@ jobs:
         run: |
           set -euo pipefail
           source "$RUNNER_TEMP/nova-android-venv/bin/activate"
+          export LD_LIBRARY_PATH="$(python -c 'from pathlib import Path; import PySide6; print(Path(PySide6.__file__).parent / "Qt" / "lib")'):${LD_LIBRARY_PATH:-}"
           mkdir -p "$RUNNER_TEMP/nova-android-wheels"
           cd "$RUNNER_TEMP/nova-android-wheels"
           qtpip download 'PySide6==6.12.0' --android --arch aarch64
@@ -120,12 +125,19 @@ jobs:
         run: |
           set -euo pipefail
           source "$RUNNER_TEMP/nova-android-venv/bin/activate"
+          export LD_LIBRARY_PATH="$(python -c 'from pathlib import Path; import PySide6; print(Path(PySide6.__file__).parent / "Qt" / "lib")'):${LD_LIBRARY_PATH:-}"
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           NDK="$SDK/ndk/28.2.13676358"
           test -d "$SDK/platform-tools" || { echo "Android SDK platform-tools are missing"; exit 1; }
           test -d "$SDK/platforms/android-35" || { echo "Android SDK platform android-35 is missing"; exit 1; }
           test -d "$SDK/build-tools/35.0.0" || { echo "Android build-tools 35.0.0 are missing"; exit 1; }
-          test -d "$NDK" || { echo "Android NDK 28.2.13676358 is missing"; exit 1; }
+          if [ ! -d "$NDK" ]; then
+            SDKMANAGER="$(find "$SDK/cmdline-tools" -type f -name sdkmanager -print -quit)"
+            test -n "$SDKMANAGER" || { echo "Android SDK manager is missing"; exit 1; }
+            yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses >/dev/null
+            "$SDKMANAGER" --sdk_root="$SDK" "ndk;28.2.13676358"
+          fi
+          test -d "$NDK" || { echo "Android NDK 28.2.13676358 could not be installed"; exit 1; }
           PYSIDE_WHEEL="$(find "$RUNNER_TEMP/nova-android-wheels" -maxdepth 1 -iname 'pyside6-*.whl' -print -quit)"
           SHIBOKEN_WHEEL="$(find "$RUNNER_TEMP/nova-android-wheels" -maxdepth 1 -iname 'shiboken6-*.whl' -print -quit)"
           test -n "$PYSIDE_WHEEL" || { echo "PySide6 Android wheel was not downloaded"; exit 1; }
