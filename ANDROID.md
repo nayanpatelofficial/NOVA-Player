@@ -10,7 +10,7 @@ Download `NOVA-Player-Android-arm64.apk` from the GitHub Actions artifact or a G
 
 ## Build locally
 
-Build on Linux or macOS with Python 3.10–3.14, JDK 21, Android SDK platform-tools, Android platform 35, build-tools 35.0.0, and NDK 28.2.13676358. It uses the official public Qt 6.12.0 Android wheels and verifies their published SHA-256 hashes before packaging.
+Build on Linux or macOS with Python 3.10–3.14, JDK 21, Android SDK platform-tools, Android platform 35, build-tools 35.0.0, and NDK 28.2.13676358. On Ubuntu, install `libdouble-conversion3` and `libltdl-dev` before building; the latter supplies libtool's Autoconf macros needed while preparing libffi. It uses the official public Qt 6.12.0 Android wheels and verifies their published SHA-256 hashes before packaging.
 
 ```sh
 python3 -m venv .venv-android
