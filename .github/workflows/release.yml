@@ -157,20 +157,38 @@ jobs:
             -o "$RUNNER_TEMP/nova-android-link-test"
           PYSIDE_WHEEL="$RUNNER_TEMP/nova-android-wheels/pyside6-android-aarch64.whl"
           SHIBOKEN_WHEEL="$RUNNER_TEMP/nova-android-wheels/shiboken6-android-aarch64.whl"
+          CONFIG_LOG="$RUNNER_TEMP/nova-libffi-config.log"
+          LIBFFI_BUILD="$GITHUB_WORKSPACE/.buildozer/android/platform/build-arm64-v8a/build/other_builds/libffi"
           pyside6-android-deploy --force --name 'NOVA Player' \
             --wheel-pyside="$PYSIDE_WHEEL" \
             --wheel-shiboken="$SHIBOKEN_WHEEL" \
-            --ndk-path="$NDK" --sdk-path="$SDK"
-          if ! find . -type f -name '*.apk' -not -path './.git/*' -not -path './.venv/*' -print -quit | grep -q .; then
-            echo "::group::libffi configure diagnostics"
-            find .buildozer/android/platform/build-arm64-v8a/build/other_builds/libffi \
-              -name config.log -type f -print \
-              -exec tail -n 120 {} \;
-            echo "::endgroup::"
-          fi
+            --ndk-path="$NDK" --sdk-path="$SDK" &
+          DEPLOY_PID=$!
+          (
+            while kill -0 "$DEPLOY_PID" 2>/dev/null; do
+              find "$LIBFFI_BUILD" -name config.log -type f \
+                -exec cp -f {} "$CONFIG_LOG" \; 2>/dev/null || true
+              sleep 0.2
+            done
+            find "$LIBFFI_BUILD" -name config.log -type f \
+              -exec cp -f {} "$CONFIG_LOG" \; 2>/dev/null || true
+          ) &
+          WATCHER_PID=$!
+          wait "$DEPLOY_PID" || true
+          wait "$WATCHER_PID" || true
           mkdir -p dist/android
           APK="$(find . -type f -name '*.apk' -not -path './.git/*' -not -path './.venv/*' -print -quit)"
-          test -n "$APK" || { echo "APK output was not found"; exit 1; }
+          if [ -z "$APK" ]; then
+            if [ -f "$CONFIG_LOG" ]; then
+              echo "::group::libffi configure diagnostics"
+              tail -n 120 "$CONFIG_LOG"
+              echo "::endgroup::"
+            else
+              echo "libffi config.log was not captured before Buildozer cleanup."
+            fi
+            echo "APK output was not found"
+            exit 1
+          fi
           cp "$APK" dist/android/NOVA-Player-Android-arm64.apk
           sha256sum dist/android/NOVA-Player-Android-arm64.apk
       - uses: actions/upload-artifact@v7
