@@ -12,6 +12,8 @@ $BuildArgs = @('--noconfirm', '--clean', '--windowed', '--name', 'NOVAPlayer', '
 & $Python -m PyInstaller @BuildArgs main.py
 if ($LASTEXITCODE -ne 0) { throw 'NOVA Player executable build failed.' }
 $AppFolder = Join-Path $Project 'dist\NOVAPlayer'
+$ShortcutIcon = Join-Path $AppFolder 'NOVAPlayer-icon.ico'
+Copy-Item -LiteralPath $IconPath -Destination $ShortcutIcon -Force
 $LicenseFolder = Join-Path $AppFolder 'Licenses'
 if (Test-Path $LicenseFolder) { Remove-Item -LiteralPath $LicenseFolder -Recurse -Force }
 New-Item -ItemType Directory -Path $LicenseFolder -Force | Out-Null
