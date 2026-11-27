@@ -157,7 +157,7 @@ jobs:
             --ndk-path="$NDK" --sdk-path="$SDK"; then
             echo "::group::libffi configure diagnostics"
             find .buildozer/android/platform/build-arm64-v8a \
-              -path '*/libffi/*/config.log' -type f -print \
+              -path '*/libffi/config.log' -type f -print \
               -exec tail -n 120 {} \;
             echo "::endgroup::"
             exit 1
