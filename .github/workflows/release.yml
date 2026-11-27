@@ -134,7 +134,9 @@ jobs:
           if [ ! -d "$NDK" ]; then
             SDKMANAGER="$(find "$SDK/cmdline-tools" -type f -name sdkmanager -print -quit)"
             test -n "$SDKMANAGER" || { echo "Android SDK manager is missing"; exit 1; }
+            set +o pipefail
             yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses >/dev/null
+            set -o pipefail
             "$SDKMANAGER" --sdk_root="$SDK" "ndk;28.2.13676358"
           fi
           test -d "$NDK" || { echo "Android NDK 28.2.13676358 could not be installed"; exit 1; }
