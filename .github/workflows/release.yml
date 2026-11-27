@@ -149,6 +149,12 @@ jobs:
             "$SDKMANAGER" --sdk_root="$SDK" "ndk;28.2.13676358"
           fi
           test -d "$NDK" || { echo "Android NDK 28.2.13676358 could not be installed"; exit 1; }
+          printf 'int main(void) { return 0; }\n' > "$RUNNER_TEMP/nova-android-link-test.c"
+          "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" \
+            -target aarch64-linux-android28 -fomit-frame-pointer \
+            -march=armv8-a -fPIC -v \
+            "$RUNNER_TEMP/nova-android-link-test.c" \
+            -o "$RUNNER_TEMP/nova-android-link-test"
           PYSIDE_WHEEL="$RUNNER_TEMP/nova-android-wheels/pyside6-android-aarch64.whl"
           SHIBOKEN_WHEEL="$RUNNER_TEMP/nova-android-wheels/shiboken6-android-aarch64.whl"
           pyside6-android-deploy --force --name 'NOVA Player' \
