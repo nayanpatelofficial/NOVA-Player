@@ -110,7 +110,7 @@ jobs:
           python -m venv "$RUNNER_TEMP/nova-android-venv"
           source "$RUNNER_TEMP/nova-android-venv/bin/activate"
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          python -m pip install -r requirements.txt jinja2 pkginfo tqdm 'packaging==24.1'
           python -m pip install "git+https://github.com/miurahr/aqtinstall.git@8e4ea786f8a4f9dc578516738a137dec80a0362c"
       - name: Download official Qt for Python Android wheels
         shell: bash

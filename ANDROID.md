@@ -15,7 +15,7 @@ Build on Linux or macOS with Python 3.10–3.14, JDK 21, Android SDK platform-to
 ```sh
 python3 -m venv .venv-android
 . .venv-android/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt jinja2 pkginfo tqdm 'packaging==24.1'
 
 WHEEL_DIR=/tmp/nova-android-wheels
 mkdir -p "$WHEEL_DIR"
