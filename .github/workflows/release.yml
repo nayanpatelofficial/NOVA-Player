@@ -112,20 +112,27 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install "git+https://github.com/miurahr/aqtinstall.git@8e4ea786f8a4f9dc578516738a137dec80a0362c"
-      - name: Install community Qt for host and Android
+      - name: Download official Qt for Python Android wheels
+        shell: bash
+        run: |
+          set -euo pipefail
+          WHEEL_DIR="$RUNNER_TEMP/nova-android-wheels"
+          mkdir -p "$WHEEL_DIR"
+          curl --fail --location --retry 3 \
+            https://download.qt.io/official_releases/QtForPython/pyside6/pyside6-6.12.0-6.12.0-cp310-abi3-android_aarch64.whl \
+            --output "$WHEEL_DIR/pyside6-android-aarch64.whl"
+          curl --fail --location --retry 3 \
+            https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.12.0-6.12.0-cp310-abi3-android_aarch64.whl \
+            --output "$WHEEL_DIR/shiboken6-android-aarch64.whl"
+          printf '%s  %s\n%s  %s\n' \
+            '2cb8352ae6cd091c9f5e11d7bc4ba3bf54088548f63cd804adfdffe5c97c5eb2' "$WHEEL_DIR/pyside6-android-aarch64.whl" \
+            'dc5dc4ca86c88327575a9d338c678a8f81f859a25a4dc0e6a539e465ab881660' "$WHEEL_DIR/shiboken6-android-aarch64.whl" \
+            | sha256sum --check
+      - name: Build APK
         shell: bash
         run: |
           set -euo pipefail
           source "$RUNNER_TEMP/nova-android-venv/bin/activate"
-          QT_ROOT="$RUNNER_TEMP/Qt"
-          python -m aqt install-qt linux desktop 6.12.0 gcc_64 -O "$QT_ROOT" -m qtmultimedia
-          python -m aqt install-qt all_os android 6.12.0 android_arm64_v8a -O "$QT_ROOT" -m qtmultimedia
-      - name: Cross-compile open-source PySide6 Android wheels
-        shell: bash
-        run: |
-          set -euo pipefail
-          source "$RUNNER_TEMP/nova-android-venv/bin/activate"
-          QT_ROOT="$RUNNER_TEMP/Qt/6.12.0"
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           NDK="$SDK/ndk/28.2.13676358"
           test -d "$SDK/platform-tools" || { echo "Android SDK platform-tools are missing"; exit 1; }
@@ -140,17 +147,8 @@ jobs:
             "$SDKMANAGER" --sdk_root="$SDK" "ndk;28.2.13676358"
           fi
           test -d "$NDK" || { echo "Android NDK 28.2.13676358 could not be installed"; exit 1; }
-          git clone --depth 1 --branch 6.12 https://github.com/pyside/pyside-setup.git "$RUNNER_TEMP/pyside-setup"
-          cd "$RUNNER_TEMP/pyside-setup"
-          python -m pip install -r requirements.txt -r tools/cross_compile_android/requirements.txt
-          python tools/cross_compile_android/main.py --plat-name=aarch64 \
-            --qt-install-path="$QT_ROOT" --ndk-path="$NDK" --sdk-path="$SDK" \
-            --auto-accept-license --skip-update
-          PYSIDE_WHEEL="$(find "$RUNNER_TEMP/pyside-setup/dist_android" -maxdepth 1 -iname 'pyside6-*.whl' -print -quit)"
-          SHIBOKEN_WHEEL="$(find "$RUNNER_TEMP/pyside-setup/dist_android" -maxdepth 1 -iname 'shiboken6-*.whl' -print -quit)"
-          test -n "$PYSIDE_WHEEL" || { echo "PySide6 Android wheel was not downloaded"; exit 1; }
-          test -n "$SHIBOKEN_WHEEL" || { echo "Shiboken6 Android wheel was not built"; exit 1; }
-          cd "$GITHUB_WORKSPACE"
+          PYSIDE_WHEEL="$RUNNER_TEMP/nova-android-wheels/pyside6-android-aarch64.whl"
+          SHIBOKEN_WHEEL="$RUNNER_TEMP/nova-android-wheels/shiboken6-android-aarch64.whl"
           pyside6-android-deploy --force --name 'NOVA Player' \
             --wheel-pyside="$PYSIDE_WHEEL" \
             --wheel-shiboken="$SHIBOKEN_WHEEL" \

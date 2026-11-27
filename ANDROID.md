@@ -10,32 +10,29 @@ Download `NOVA-Player-Android-arm64.apk` from the GitHub Actions artifact or a G
 
 ## Build locally
 
-Build on Linux or macOS with Python 3.10–3.14, JDK 21, Android SDK platform-tools, Android platform 35, build-tools 35.0.0, and NDK 28.2.13676358. The workflow builds community Qt/PySide6 Android wheels from source, so it does not need Qt commercial account credentials. It uses Qt 6.12.0 for both host and Android.
+Build on Linux or macOS with Python 3.10–3.14, JDK 21, Android SDK platform-tools, Android platform 35, build-tools 35.0.0, and NDK 28.2.13676358. It uses the official public Qt 6.12.0 Android wheels and verifies their published SHA-256 hashes before packaging.
 
 ```sh
 python3 -m venv .venv-android
 . .venv-android/bin/activate
 python -m pip install -r requirements.txt
-python -m pip install "git+https://github.com/miurahr/aqtinstall.git@8e4ea786f8a4f9dc578516738a137dec80a0362c"
 
-QT_ROOT="$HOME/Qt"
-python -m aqt install-qt linux desktop 6.12.0 gcc_64 -O "$QT_ROOT" -m qtmultimedia
-python -m aqt install-qt all_os android 6.12.0 android_arm64_v8a -O "$QT_ROOT" -m qtmultimedia
+WHEEL_DIR=/tmp/nova-android-wheels
+mkdir -p "$WHEEL_DIR"
+curl -fL --retry 3 \
+  https://download.qt.io/official_releases/QtForPython/pyside6/pyside6-6.12.0-6.12.0-cp310-abi3-android_aarch64.whl \
+  -o "$WHEEL_DIR/pyside6-android-aarch64.whl"
+curl -fL --retry 3 \
+  https://download.qt.io/official_releases/QtForPython/shiboken6/shiboken6-6.12.0-6.12.0-cp310-abi3-android_aarch64.whl \
+  -o "$WHEEL_DIR/shiboken6-android-aarch64.whl"
+printf '%s  %s\n%s  %s\n' \
+  '2cb8352ae6cd091c9f5e11d7bc4ba3bf54088548f63cd804adfdffe5c97c5eb2' "$WHEEL_DIR/pyside6-android-aarch64.whl" \
+  'dc5dc4ca86c88327575a9d338c678a8f81f859a25a4dc0e6a539e465ab881660' "$WHEEL_DIR/shiboken6-android-aarch64.whl" \
+  | sha256sum --check
 
-git clone --depth 1 --branch 6.12 https://github.com/pyside/pyside-setup.git /tmp/pyside-setup
-cd /tmp/pyside-setup
-python -m pip install -r requirements.txt -r tools/cross_compile_android/requirements.txt
-python tools/cross_compile_android/main.py --plat-name=aarch64 \
-  --qt-install-path="$QT_ROOT/6.12.0" \
-  --ndk-path="$ANDROID_HOME/ndk/28.2.13676358" \
-  --sdk-path="$ANDROID_HOME" --auto-accept-license --skip-update
-
-cd /path/to/NOVA-Player
-PYSIDE_WHEEL="$(find /tmp/pyside-setup/dist_android -maxdepth 1 -iname 'pyside6-*.whl' -print -quit)"
-SHIBOKEN_WHEEL="$(find /tmp/pyside-setup/dist_android -maxdepth 1 -iname 'shiboken6-*.whl' -print -quit)"
 pyside6-android-deploy --force --name 'NOVA Player' \
-  --wheel-pyside="$PYSIDE_WHEEL" \
-  --wheel-shiboken="$SHIBOKEN_WHEEL" \
+  --wheel-pyside="$WHEEL_DIR/pyside6-android-aarch64.whl" \
+  --wheel-shiboken="$WHEEL_DIR/shiboken6-android-aarch64.whl" \
   --ndk-path="$ANDROID_HOME/ndk/28.2.13676358" \
   --sdk-path="$ANDROID_HOME"
 ```
