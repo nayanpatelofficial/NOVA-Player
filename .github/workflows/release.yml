@@ -104,7 +104,7 @@ jobs:
       - name: Install Linux libraries needed by Qt wheel tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes libdouble-conversion3
+          sudo apt-get install --yes libdouble-conversion3 libltdl-dev
       - name: Install host-side Qt for Python and app dependencies
         run: |
           python -m venv "$RUNNER_TEMP/nova-android-venv"
