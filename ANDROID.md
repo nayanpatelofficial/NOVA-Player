@@ -30,6 +30,10 @@ printf '%s  %s\n%s  %s\n' \
   'dc5dc4ca86c88327575a9d338c678a8f81f859a25a4dc0e6a539e465ab881660' "$WHEEL_DIR/shiboken6-android-aarch64.whl" \
   | sha256sum --check
 
+SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+mkdir -p "$ANDROID_HOME/tools/bin"
+ln -sf "$SDKMANAGER" "$ANDROID_HOME/tools/bin/sdkmanager"
+
 pyside6-android-deploy --force --name 'NOVA Player' \
   --wheel-pyside="$WHEEL_DIR/pyside6-android-aarch64.whl" \
   --wheel-shiboken="$WHEEL_DIR/shiboken6-android-aarch64.whl" \

@@ -135,12 +135,14 @@ jobs:
           source "$RUNNER_TEMP/nova-android-venv/bin/activate"
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           NDK="$SDK/ndk/28.2.13676358"
+          SDKMANAGER="$(find "$SDK/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$SDKMANAGER" || { echo "Android SDK manager is missing"; exit 1; }
+          mkdir -p "$SDK/tools/bin"
+          ln -sf "$SDKMANAGER" "$SDK/tools/bin/sdkmanager"
           test -d "$SDK/platform-tools" || { echo "Android SDK platform-tools are missing"; exit 1; }
           test -d "$SDK/platforms/android-35" || { echo "Android SDK platform android-35 is missing"; exit 1; }
           test -d "$SDK/build-tools/35.0.0" || { echo "Android build-tools 35.0.0 are missing"; exit 1; }
           if [ ! -d "$NDK" ]; then
-            SDKMANAGER="$(find "$SDK/cmdline-tools" -type f -name sdkmanager -print -quit)"
-            test -n "$SDKMANAGER" || { echo "Android SDK manager is missing"; exit 1; }
             set +o pipefail
             yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses >/dev/null
             set -o pipefail
