@@ -15,7 +15,8 @@ Build on Linux or macOS with Python 3.10–3.14, JDK 21, Android SDK platform-to
 ```sh
 python3 -m venv .venv-android
 . .venv-android/bin/activate
-python -m pip install -r requirements.txt aqtinstall
+python -m pip install -r requirements.txt
+python -m pip install "git+https://github.com/miurahr/aqtinstall.git@8e4ea786f8a4f9dc578516738a137dec80a0362c"
 
 QT_ROOT="$HOME/Qt"
 python -m aqt install-qt linux desktop 6.12.0 gcc_64 -O "$QT_ROOT" -m qtmultimedia
